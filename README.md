@@ -40,24 +40,40 @@ After installation, create a **Multi-Output Device** in Audio MIDI Setup:
 
 Now all system audio plays through both your speakers and BlackHole simultaneously.
 
-### 2. Install Python Dependencies
+### 2. Install uv (package manager)
 
 ```bash
-pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 3. Flash the Pico Board
+### 3. Install Python Dependencies
+
+```bash
+uv sync
+```
+
+### 4. Flash the Pico Board
 
 The Galactic Unicorn needs the MicroPython firmware with Pimoroni libraries. See [Pimoroni's guide](https://github.com/pimoroni/pimoroni-pico) for flashing.
 
 Copy the `pico/` files to the board. If the board is mounted upside down, set `FLIPPED = True` in `config.py` before copying.
+
+```bash
+./deploy.sh
+```
+
+Or specify a port explicitly:
+
+```bash
+./deploy.sh /dev/cu.usbmodem1201
+```
 
 ## Usage
 
 Connect the board via USB, then:
 
 ```bash
-python host/main.py
+uv run python host/main.py
 ```
 
 The host auto-detects the Pico serial port (`/dev/cu.usbmodem*`).
@@ -75,13 +91,13 @@ The host auto-detects the Pico serial port (`/dev/cu.usbmodem*`).
 Test the FFT pipeline without a board connected:
 
 ```bash
-python host/main.py --console
+uv run python host/main.py --console
 ```
 
 ### Manual Port Selection
 
 ```bash
-python host/main.py --port /dev/cu.usbmodem1101
+uv run python host/main.py --port /dev/cu.usbmodem1101
 ```
 
 ## Display
