@@ -75,6 +75,8 @@ class AudioCapture:
     def _audio_callback(self, indata, frames, time_info, status):
         if status:
             print(f"[audio] {status}")
+        left = indata[:, 0]
+        right = indata[:, 1] if indata.shape[1] > 1 else left
         # Mix stereo to mono
-        mono = indata.mean(axis=1)
-        self._callback(mono)
+        mono = (left + right) * 0.5
+        self._callback(mono, left, right)

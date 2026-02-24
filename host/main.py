@@ -19,6 +19,7 @@ import numpy as np
 from audio_capture import AudioCapture
 from fft_processor import FFTProcessor
 from waveform_processor import WaveformProcessor
+from level_processor import LevelProcessor
 from udp_sender import UDPSender
 from protocol import encode_packet, BOARD_ID, NUM_COLS
 
@@ -39,28 +40,33 @@ def main():
 
     brightness = max(0, min(255, args.brightness))
 
-    # Shared state: latest FFT + waveform results
+    # Shared state: latest FFT + waveform + VU results
     lock = threading.Lock()
     latest_bars = np.zeros(NUM_COLS, dtype=int)
     latest_scope = np.zeros(NUM_COLS, dtype=int)
+    latest_vu = (0, 0, 0, 0)
     fft_proc = None
     wave_proc = None
+    level_proc = None
 
-    def audio_callback(mono_chunk):
-        nonlocal latest_bars, latest_scope, fft_proc, wave_proc
+    def audio_callback(mono_chunk, left_chunk, right_chunk):
+        nonlocal latest_bars, latest_scope, latest_vu, fft_proc, wave_proc, level_proc
         if fft_proc is None:
             return
         bars = fft_proc.process(mono_chunk)
         scope = wave_proc.process(mono_chunk)
+        vu = level_proc.process(left_chunk, right_chunk)
         with lock:
             latest_bars = bars
             latest_scope = scope
+            latest_vu = vu
 
     # Set up audio
     print("[host] Starting audio capture from BlackHole...")
     audio = AudioCapture(callback=audio_callback)
     fft_proc = FFTProcessor(audio.sample_rate, audio.block_size)
     wave_proc = WaveformProcessor(audio.block_size)
+    level_proc = LevelProcessor()
 
     # Set up transport
     udp = None
@@ -94,6 +100,7 @@ def main():
             with lock:
                 bars = latest_bars.copy()
                 scope = latest_scope.copy()
+                vu = latest_vu
 
             cols = bars[:NUM_COLS]
             scope_cols = scope[:NUM_COLS]
@@ -102,7 +109,7 @@ def main():
                 _print_console(cols)
             elif udp:
                 pkt = encode_packet(BOARD_ID, frame_num, brightness, cols,
-                                    scope_cols)
+                                    scope_cols, vu=vu)
                 udp.send(pkt)
 
             frame_num = (frame_num + 1) & 0xFF
