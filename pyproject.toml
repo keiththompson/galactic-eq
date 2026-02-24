@@ -1,0 +1,13 @@
+[project]
+name = "galactic-eq"
+version = "0.1.0"
+description = "Pimoroni Galactic Unicorn audio visualizer — 53x11 LED matrix real-time equalizer driven by macOS system audio"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pyserial",
+    "sounddevice",
+]
+
+[dependency-groups]
+deploy = ["mpremote"]
