@@ -1,25 +1,17 @@
-"""Galactic Unicorn equalizer -- Pico entry point.
+"""Galactic Unicorn visualiser -- Pico entry point.
 
-Reads binary packets from USB serial or WiFi UDP and renders
-equalizer bars on the LED matrix.
-
-Transport selection (automatic at startup):
-  - If pico/secrets.py exists and WiFi connects -> UDP receiver
-  - Otherwise -> USB serial (stdin)
+Reads binary packets over WiFi UDP and renders on the LED matrix.
+Button A = spectrum EQ, Button B = scope.
 """
 
 import time
-import sys
-import select
 
 from galactic import GalacticUnicorn
 from picographics import PicoGraphics, DISPLAY_GALACTIC_UNICORN
 
 from config import FLIPPED
-from protocol import PacketDecoder, validate_packet
+from protocol import validate_packet
 from visualizer import Visualizer
-
-BAUD = 115200
 
 # Timeout before blanking display when no packets arrive (ms)
 NO_DATA_TIMEOUT_MS = 3000
@@ -36,6 +28,11 @@ LUX_REPEAT_MS = 150
 LUX_FILE = "lux.cfg"
 # Delay before writing to flash after last change (ms) to reduce wear
 LUX_SAVE_DELAY_MS = 2000
+
+# Visualisation modes (selected by A/B/C/D buttons)
+MODE_EQ = 0     # Button A: spectrum analyser
+MODE_SCOPE = 1  # Button B: oscilloscope
+MODE_REPEAT_MS = 200  # debounce for mode buttons
 
 
 def _load_lux():
@@ -56,21 +53,13 @@ def _save_lux(brightness):
         pass
 
 
-def _try_wifi():
-    """Attempt WiFi setup. Returns a WiFiReceiver or None."""
-    try:
-        from secrets import WIFI_SSID, WIFI_PASSWORD
-    except ImportError:
-        return None
-
-    try:
-        from wifi_receiver import WiFiReceiver
-        wifi = WiFiReceiver(WIFI_SSID, WIFI_PASSWORD)
-        wifi.connect()
-        return wifi
-    except OSError as e:
-        print(f"[main] WiFi failed: {e}, falling back to serial")
-        return None
+def _connect_wifi():
+    """Connect to WiFi and return a WiFiReceiver."""
+    from secrets import WIFI_SSID, WIFI_PASSWORD
+    from wifi_receiver import WiFiReceiver
+    wifi = WiFiReceiver(WIFI_SSID, WIFI_PASSWORD)
+    wifi.connect()
+    return wifi
 
 
 def _poll_lux(gu, local_brightness, last_lux_ms, lux_dirty_ms):
@@ -100,38 +89,29 @@ def _poll_lux(gu, local_brightness, last_lux_ms, lux_dirty_ms):
     return local_brightness, last_lux_ms, lux_dirty_ms
 
 
-def _run_serial(vis, gu, initial_brightness):
-    """Main loop: receive packets over USB serial (original path)."""
-    decoder = PacketDecoder()
-    poller = select.poll()
-    poller.register(sys.stdin, select.POLLIN)
+def _poll_mode(gu, current_mode, last_mode_ms):
+    """Check A/B buttons for visualisation mode switch.
 
-    last_frame_ms = time.ticks_ms()
-    blank = bytes(53)
-    local_brightness = initial_brightness
-    last_lux_ms = 0
-    lux_dirty_ms = 0
+    Returns (mode, last_mode_ms).
+    """
+    now = time.ticks_ms()
+    if time.ticks_diff(now, last_mode_ms) < MODE_REPEAT_MS:
+        return current_mode, last_mode_ms
 
-    while True:
-        local_brightness, last_lux_ms, lux_dirty_ms = _poll_lux(
-            gu, local_brightness, last_lux_ms, lux_dirty_ms
-        )
+    if gu.is_pressed(GalacticUnicorn.SWITCH_A):
+        return MODE_EQ, now
+    if gu.is_pressed(GalacticUnicorn.SWITCH_B):
+        return MODE_SCOPE, now
 
-        events = poller.poll(0)
-        if events:
-            data = sys.stdin.buffer.read()
-            if data:
-                packets = decoder.feed(data)
-                for pkt in packets:
-                    vis.render(pkt["columns"], local_brightness)
-                    last_frame_ms = time.ticks_ms()
+    return current_mode, last_mode_ms
 
-        elapsed = time.ticks_diff(time.ticks_ms(), last_frame_ms)
-        if elapsed > NO_DATA_TIMEOUT_MS:
-            vis.render(blank, 0)
-            last_frame_ms = time.ticks_ms()
 
-        time.sleep_ms(1)
+def _render_frame(vis, pkt, brightness, mode):
+    """Render the appropriate visualisation for the current mode."""
+    if mode == MODE_SCOPE:
+        vis.render_scope(pkt["scope"], brightness)
+    else:
+        vis.render(pkt["columns"], brightness)
 
 
 def _run_wifi(wifi, vis, gu, initial_brightness):
@@ -142,17 +122,20 @@ def _run_wifi(wifi, vis, gu, initial_brightness):
     local_brightness = initial_brightness
     last_lux_ms = 0
     lux_dirty_ms = 0
+    mode = MODE_EQ
+    last_mode_ms = 0
 
     while True:
         local_brightness, last_lux_ms, lux_dirty_ms = _poll_lux(
             gu, local_brightness, last_lux_ms, lux_dirty_ms
         )
+        mode, last_mode_ms = _poll_mode(gu, mode, last_mode_ms)
 
         data = wifi.recv()
         if data:
             pkt = validate_packet(data)
             if pkt:
-                vis.render(pkt["columns"], local_brightness)
+                _render_frame(vis, pkt, local_brightness, mode)
                 last_frame_ms = time.ticks_ms()
 
         # Blank display if no data for a while
@@ -181,13 +164,9 @@ def main():
 
     vis = Visualizer(gu, gfx, flipped=FLIPPED)
 
-    wifi = _try_wifi()
-    if wifi:
-        print("[main] Using WiFi transport")
-        _run_wifi(wifi, vis, gu, brightness)
-    else:
-        print("[main] Using serial transport")
-        _run_serial(vis, gu, brightness)
+    wifi = _connect_wifi()
+    print("[main] Using WiFi transport")
+    _run_wifi(wifi, vis, gu, brightness)
 
 
 main()

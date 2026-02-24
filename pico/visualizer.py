@@ -1,12 +1,15 @@
-"""LED rendering for Galactic Unicorn equalizer bars.
+"""LED rendering for Galactic Unicorn visualisations.
 
-Colour gradient (classic VU meter):
-    Rows 0-3   (bottom) : green
-    Rows 4-7   (middle) : yellow
-    Rows 8-10  (top)    : red
+EQ mode (button A):
+    Colour gradient (classic VU meter):
+        Rows 0-3   (bottom) : green
+        Rows 4-7   (middle) : yellow
+        Rows 8-10  (top)    : red
+    Peak hold: white dot at column maximum, decays ~0.15 per frame.
 
-Peak hold: white dot at column maximum, decays ~0.15 per frame
-(~2.4 s full decay at 30 FPS).
+Scope mode (button B):
+    Classic phosphor-green oscilloscope waveform with connected
+    line drawing and a dim centre reference line.
 """
 
 from galactic import GalacticUnicorn
@@ -47,6 +50,9 @@ class Visualizer:
         self._row_pens = [graphics.create_pen(r, g, b) for r, g, b in _ROW_COLOURS]
         self._black = graphics.create_pen(0, 0, 0)
         self._white = graphics.create_pen(255, 255, 255)
+        # Scope pens
+        self._scope_pen = graphics.create_pen(0, 255, 50)
+        self._center_pen = graphics.create_pen(20, 40, 20)
 
     def render(self, columns, brightness):
         """Draw one frame.  columns: bytes/list of 53 values 0-11.
@@ -89,6 +95,49 @@ class Visualizer:
                 dx, dy = self._map(col, HEIGHT - 1 - peak_row)
                 gfx.set_pen(self._white)
                 gfx.pixel(dx, dy)
+
+        self._gu.update(gfx)
+
+    def render_scope(self, scope_columns, brightness):
+        """Draw one oscilloscope frame.
+
+        scope_columns: bytes/list of 53 values 0-10 (Y positions,
+        0 = bottom, 10 = top).
+        """
+        if isinstance(brightness, float):
+            self._gu.set_brightness(brightness)
+        else:
+            self._gu.set_brightness(brightness / 255.0)
+
+        gfx = self._gfx
+        gfx.set_pen(self._black)
+        gfx.clear()
+
+        # Dim centre reference line (row 5)
+        center_display_row = HEIGHT // 2
+        gfx.set_pen(self._center_pen)
+        for col in range(WIDTH):
+            dx, dy = self._map(col, center_display_row)
+            gfx.pixel(dx, dy)
+
+        # Waveform trace
+        gfx.set_pen(self._scope_pen)
+        prev_y = min(scope_columns[0], HEIGHT - 1)
+        for col in range(WIDTH):
+            curr_y = min(scope_columns[col], HEIGHT - 1)
+
+            # Fill vertical span between prev and current to connect the line
+            if col > 0:
+                y_lo = min(prev_y, curr_y)
+                y_hi = max(prev_y, curr_y)
+                for fill_y in range(y_lo, y_hi + 1):
+                    dx, dy = self._map(col, HEIGHT - 1 - fill_y)
+                    gfx.pixel(dx, dy)
+            else:
+                dx, dy = self._map(col, HEIGHT - 1 - curr_y)
+                gfx.pixel(dx, dy)
+
+            prev_y = curr_y
 
         self._gu.update(gfx)
 

@@ -1,21 +1,16 @@
 """Galactic Equalizer -- macOS host entry point.
 
 Captures system audio via BlackHole, performs FFT analysis, and
-sends equalizer data to a Galactic Unicorn board at ~30 FPS.
-
-Transport selection:
-  --wifi          Force UDP broadcast (no serial)
-  --port PORT     Force serial on explicit port
-  (default)       Auto-detect serial; fall back to UDP if no port found
+sends equalizer data to a Galactic Unicorn board at ~30 FPS via
+UDP broadcast.
 
 Usage:
-    python host/main.py [--port PORT] [--brightness 0-255]
-    python host/main.py --wifi [--udp-port 4210]
+    python host/main.py [--brightness 0-255] [--udp-port 4210]
+    python host/main.py --console
 """
 
 import argparse
 import signal
-import sys
 import threading
 import time
 
@@ -23,7 +18,7 @@ import numpy as np
 
 from audio_capture import AudioCapture
 from fft_processor import FFTProcessor
-from serial_manager import SerialManager, find_pico_ports
+from waveform_processor import WaveformProcessor
 from udp_sender import UDPSender
 from protocol import encode_packet, BOARD_ID, NUM_COLS
 
@@ -34,71 +29,52 @@ DEFAULT_BRIGHTNESS = 180
 
 def main():
     parser = argparse.ArgumentParser(description="Galactic Equalizer host")
-    parser.add_argument("--port", help="Serial port for the board")
     parser.add_argument("--brightness", type=int, default=DEFAULT_BRIGHTNESS,
                         help="LED brightness 0-255 (default: 180)")
     parser.add_argument("--console", action="store_true",
-                        help="Print bars to console instead of serial")
-    parser.add_argument("--wifi", action="store_true",
-                        help="Use UDP broadcast instead of serial")
+                        help="Print bars to console instead of sending")
     parser.add_argument("--udp-port", type=int, default=4210,
                         help="UDP broadcast port (default: 4210)")
     args = parser.parse_args()
 
     brightness = max(0, min(255, args.brightness))
 
-    # Shared state: latest FFT result
+    # Shared state: latest FFT + waveform results
     lock = threading.Lock()
     latest_bars = np.zeros(NUM_COLS, dtype=int)
+    latest_scope = np.zeros(NUM_COLS, dtype=int)
     fft_proc = None
+    wave_proc = None
 
     def audio_callback(mono_chunk):
-        nonlocal latest_bars, fft_proc
+        nonlocal latest_bars, latest_scope, fft_proc, wave_proc
         if fft_proc is None:
             return
         bars = fft_proc.process(mono_chunk)
+        scope = wave_proc.process(mono_chunk)
         with lock:
             latest_bars = bars
+            latest_scope = scope
 
     # Set up audio
     print("[host] Starting audio capture from BlackHole...")
     audio = AudioCapture(callback=audio_callback)
     fft_proc = FFTProcessor(audio.sample_rate, audio.block_size)
+    wave_proc = WaveformProcessor(audio.block_size)
 
-    # Determine transport
-    ser = None
+    # Set up transport
     udp = None
     if not args.console:
-        if args.port:
-            # Explicit serial port
-            print("[host] Opening serial connection...")
-            ser = SerialManager(port=args.port)
-            ser.open()
-        elif args.wifi:
-            # Explicit WiFi flag -- use UDP
-            print("[host] Opening UDP broadcast...")
-            udp = UDPSender(port=args.udp_port)
-            udp.open()
-        else:
-            # Auto-detect: try serial first, fall back to UDP
-            ports = find_pico_ports()
-            if ports:
-                print("[host] Opening serial connection...")
-                ser = SerialManager()
-                ser.open()
-            else:
-                print("[host] No serial port found, using UDP broadcast...")
-                udp = UDPSender(port=args.udp_port)
-                udp.open()
+        print("[host] Opening UDP broadcast...")
+        udp = UDPSender(port=args.udp_port)
+        udp.open()
 
     audio.start()
     print(f"[host] Running at {TARGET_FPS} FPS, brightness={brightness}")
     if args.console:
         print("[host] Console mode -- press Ctrl+C to quit")
-    elif udp:
-        print("[host] Broadcasting via UDP -- press Ctrl+C to quit")
     else:
-        print("[host] Sending via serial -- press Ctrl+C to quit")
+        print("[host] Broadcasting via UDP -- press Ctrl+C to quit")
 
     # Graceful shutdown
     running = True
@@ -117,17 +93,17 @@ def main():
 
             with lock:
                 bars = latest_bars.copy()
+                scope = latest_scope.copy()
 
             cols = bars[:NUM_COLS]
+            scope_cols = scope[:NUM_COLS]
 
             if args.console:
                 _print_console(cols)
-            else:
-                pkt = encode_packet(BOARD_ID, frame_num, brightness, cols)
-                if ser:
-                    ser.send(pkt)
-                elif udp:
-                    udp.send(pkt)
+            elif udp:
+                pkt = encode_packet(BOARD_ID, frame_num, brightness, cols,
+                                    scope_cols)
+                udp.send(pkt)
 
             frame_num = (frame_num + 1) & 0xFF
 
@@ -139,8 +115,6 @@ def main():
     finally:
         print("\n[host] Shutting down...")
         audio.stop()
-        if ser:
-            ser.close()
         if udp:
             udp.close()
 

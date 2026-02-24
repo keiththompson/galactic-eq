@@ -1,7 +1,7 @@
-"""WiFi UDP receiver for Galactic Unicorn equalizer.
+"""WiFi UDP receiver for Galactic Unicorn visualiser.
 
 Connects to WiFi using credentials from secrets.py, then listens
-for 59-byte equalizer packets on UDP port 4210.
+for 112-byte visualiser packets on UDP port 4210.
 """
 
 import network
@@ -41,7 +41,7 @@ class WiFiReceiver:
     def recv(self):
         """Non-blocking receive. Returns bytes or None."""
         try:
-            data, _addr = self._sock.recvfrom(64)
+            data, _addr = self._sock.recvfrom(128)
             return data
         except OSError:
             return None
