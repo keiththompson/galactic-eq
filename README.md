@@ -2,17 +2,12 @@
 
 Pimoroni Galactic Unicorn audio visualizer -- a 53x11 LED matrix driven by macOS system audio over WiFi.
 
-```
-┌──────────────────────────────────────────────────┐
-│               macOS Host (Python 3)              │
-│  BlackHole audio -> FFT / scope / VU -> UDP pkt  │
-└──────────────────────┬───────────────────────────┘
-              WiFi UDP broadcast
-            ┌──────────▼──────────┐
-            │   Pico W / Pico 2 W │
-            │   53 cols, 11 rows  │
-            │   20 Hz – 20 kHz    │
-            └─────────────────────┘
+```mermaid
+graph TD
+    A[System Audio] -->|BlackHole 2ch| B[macOS Host · Python 3]
+    B -->|FFT / scope / VU| C[UDP Packet]
+    C -->|WiFi broadcast :4210| D[Pico W / Pico 2 W]
+    D --> E[Galactic Unicorn · 53×11 LEDs · 20 Hz – 20 kHz]
 ```
 
 ## Prerequisites
