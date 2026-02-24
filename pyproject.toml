@@ -2,7 +2,7 @@
 name = "galactic-eq"
 version = "0.1.0"
 description = "Pimoroni Galactic Unicorn audio visualizer — 53x11 LED matrix real-time equalizer driven by macOS system audio"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "numpy",
     "pyserial",
@@ -11,3 +11,21 @@ dependencies = [
 
 [dependency-groups]
 deploy = ["mpremote"]
+dev = [
+    "ruff>=0.15.2",
+    "ty>=0.0.18",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 99
+extend-exclude = ["pico"]  # MicroPython — not compatible with CPython tooling
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PIE"]
+
+[tool.ty.src]
+include = ["host"]
+
+[tool.ty.environment]
+python-version = "3.14"

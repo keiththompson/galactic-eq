@@ -14,16 +14,22 @@ Packet format (116 bytes):
   Byte 115:    Checksum        XOR of bytes 2-114
 """
 
+from collections.abc import Sequence
+
 SYNC = bytes([0xAA, 0x55])
 BOARD_ID = 0x00
 NUM_COLS = 53
 VU_FIELDS = 4  # l_rms, l_peak, r_rms, r_peak
 
 
-def encode_packet(board_id: int, frame: int, brightness: int,
-                  columns: bytes | list[int],
-                  scope_columns: bytes | list[int] | None = None,
-                  vu: tuple[int, int, int, int] | None = None) -> bytes:
+def encode_packet(
+    board_id: int,
+    frame: int,
+    brightness: int,
+    columns: Sequence[int],
+    scope_columns: Sequence[int] | None = None,
+    vu: tuple[int, int, int, int] | None = None,
+) -> bytes:
     """Build a 116-byte binary packet.
 
     Args:

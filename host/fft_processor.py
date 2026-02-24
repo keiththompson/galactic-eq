@@ -12,16 +12,16 @@ FREQ_MIN = 20.0
 FREQ_MAX = 20000.0
 
 # Smoothing: fast attack, slow decay
-ATTACK = 0.8   # quickly follow rising levels
-DECAY = 0.3    # slowly release falling levels
+ATTACK = 0.8  # quickly follow rising levels
+DECAY = 0.3  # slowly release falling levels
 
 # dB range mapped to 0..MAX_HEIGHT
 DB_FLOOR = -60.0
 
 # Adaptive gain: track peak level so loud signals don't just max out
-HEADROOM_DB = 3.0          # always leave this much room above the tracked peak
-DISPLAY_RANGE_DB = 55.0    # dB range mapped onto the display
-PEAK_ATTACK_RATE = 0.9     # fast rise to follow loud signals
+HEADROOM_DB = 3.0  # always leave this much room above the tracked peak
+DISPLAY_RANGE_DB = 55.0  # dB range mapped onto the display
+PEAK_ATTACK_RATE = 0.9  # fast rise to follow loud signals
 PEAK_RELEASE_RATE = 0.005  # slow decay (~3 s at 30 FPS) when signal drops
 
 
@@ -36,9 +36,7 @@ class FFTProcessor:
         self._tracked_peak_db = DB_FLOOR
 
         # Pre-compute log-spaced frequency band edges
-        self._band_edges = np.logspace(
-            np.log10(FREQ_MIN), np.log10(FREQ_MAX), NUM_BANDS + 1
-        )
+        self._band_edges = np.logspace(np.log10(FREQ_MIN), np.log10(FREQ_MAX), NUM_BANDS + 1)
 
         # Map band edges to FFT bin indices
         freq_resolution = sample_rate / block_size
@@ -76,13 +74,9 @@ class FFTProcessor:
         # Adaptive peak tracking — keeps bars from all maxing out at high volume
         current_peak_db = np.max(db)
         if current_peak_db > self._tracked_peak_db:
-            self._tracked_peak_db += PEAK_ATTACK_RATE * (
-                current_peak_db - self._tracked_peak_db
-            )
+            self._tracked_peak_db += PEAK_ATTACK_RATE * (current_peak_db - self._tracked_peak_db)
         else:
-            self._tracked_peak_db += PEAK_RELEASE_RATE * (
-                current_peak_db - self._tracked_peak_db
-            )
+            self._tracked_peak_db += PEAK_RELEASE_RATE * (current_peak_db - self._tracked_peak_db)
 
         # Dynamic ceiling with headroom above the tracked peak
         effective_ceil = self._tracked_peak_db + HEADROOM_DB

@@ -4,7 +4,6 @@ Provides a threaded InputStream that mixes stereo to mono and
 delivers chunks to a callback.
 """
 
-import numpy as np
 import sounddevice as sd
 
 SAMPLE_RATE = 44100
@@ -22,8 +21,7 @@ def find_blackhole_device() -> int | None:
 class AudioCapture:
     """Captures audio from BlackHole and delivers mono float32 chunks."""
 
-    def __init__(self, callback, device=None, sample_rate=SAMPLE_RATE,
-                 block_size=BLOCK_SIZE):
+    def __init__(self, callback, device=None, sample_rate=SAMPLE_RATE, block_size=BLOCK_SIZE):
         """
         Args:
             callback: Called with (mono_chunk: np.ndarray) for each block.
@@ -36,8 +34,7 @@ class AudioCapture:
             device = find_blackhole_device()
             if device is None:
                 raise RuntimeError(
-                    "BlackHole audio device not found. "
-                    "Install it with: brew install blackhole-2ch"
+                    "BlackHole audio device not found. Install it with: brew install blackhole-2ch"
                 )
         self._callback = callback
         self._device = device

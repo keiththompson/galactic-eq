@@ -31,7 +31,7 @@ class LevelProcessor:
 
     def __init__(self):
         self._smoothed_rms = [0.0, 0.0]  # L, R
-        self._peak_hold = [0.0, 0.0]     # L, R
+        self._peak_hold = [0.0, 0.0]  # L, R
         self._tracked_peak_db = DB_FLOOR
 
     def process(self, left: np.ndarray, right: np.ndarray) -> tuple[int, int, int, int]:
@@ -50,20 +50,16 @@ class LevelProcessor:
         # Compute dB levels for both channels
         db_levels = []
         for ch in channels:
-            rms = float(np.sqrt(np.mean(ch ** 2)))
+            rms = float(np.sqrt(np.mean(ch**2)))
             rms = max(rms, 1e-10)
             db_levels.append(20.0 * np.log10(rms))
 
         # Adaptive peak tracking across both channels
         current_peak_db = max(db_levels)
         if current_peak_db > self._tracked_peak_db:
-            self._tracked_peak_db += GAIN_ATTACK_RATE * (
-                current_peak_db - self._tracked_peak_db
-            )
+            self._tracked_peak_db += GAIN_ATTACK_RATE * (current_peak_db - self._tracked_peak_db)
         else:
-            self._tracked_peak_db += GAIN_RELEASE_RATE * (
-                current_peak_db - self._tracked_peak_db
-            )
+            self._tracked_peak_db += GAIN_RELEASE_RATE * (current_peak_db - self._tracked_peak_db)
 
         effective_ceil = self._tracked_peak_db + HEADROOM_DB
         effective_floor = max(effective_ceil - DISPLAY_RANGE_DB, DB_FLOOR)
@@ -91,9 +87,11 @@ class LevelProcessor:
 
             rms_col = int(round(self._smoothed_rms[i]))
             peak_col = int(round(self._peak_hold[i]))
-            result.extend([
-                max(0, min(NUM_COLS, rms_col)),
-                max(0, min(NUM_COLS, peak_col)),
-            ])
+            result.extend(
+                [
+                    max(0, min(NUM_COLS, rms_col)),
+                    max(0, min(NUM_COLS, peak_col)),
+                ]
+            )
 
         return tuple(result)  # (l_rms, l_peak, r_rms, r_peak)
