@@ -1,12 +1,11 @@
-"""Galactic Unicorn equalizer — Pico entry point.
+"""Galactic Unicorn equalizer -- Pico entry point.
 
 Reads binary packets from USB serial or WiFi UDP and renders
-equalizer bars on the LED matrix.  Shows a 'LEFT' or 'RIGHT' label
-on startup for 2 seconds so the user can verify board position.
+equalizer bars on the LED matrix.
 
 Transport selection (automatic at startup):
-  - If pico/secrets.py exists and WiFi connects → UDP receiver
-  - Otherwise → USB serial (stdin)
+  - If pico/secrets.py exists and WiFi connects -> UDP receiver
+  - Otherwise -> USB serial (stdin)
 """
 
 import time
@@ -16,12 +15,11 @@ import select
 from galactic import GalacticUnicorn
 from picographics import PicoGraphics, DISPLAY_GALACTIC_UNICORN
 
-from config import BOARD_ID, FLIPPED
+from config import FLIPPED
 from protocol import PacketDecoder, validate_packet
 from visualizer import Visualizer
 
 BAUD = 115200
-LABEL = "LEFT" if BOARD_ID == 0x00 else "RIGHT"
 
 # Timeout before blanking display when no packets arrive (ms)
 NO_DATA_TIMEOUT_MS = 3000
@@ -29,7 +27,7 @@ NO_DATA_TIMEOUT_MS = 3000
 # How often to check WiFi connection health (ms)
 WIFI_CHECK_INTERVAL_MS = 5000
 
-# Lux button brightness step (0.0–1.0 range)
+# Lux button brightness step (0.0-1.0 range)
 LUX_STEP = 0.05
 # Minimum time between repeated button presses (ms)
 LUX_REPEAT_MS = 150
@@ -92,9 +90,8 @@ def _run_serial(vis, gu):
             if data:
                 packets = decoder.feed(data)
                 for pkt in packets:
-                    if pkt["board_id"] == BOARD_ID:
-                        vis.render(pkt["columns"], local_brightness)
-                        last_frame_ms = time.ticks_ms()
+                    vis.render(pkt["columns"], local_brightness)
+                    last_frame_ms = time.ticks_ms()
 
         elapsed = time.ticks_diff(time.ticks_ms(), last_frame_ms)
         if elapsed > NO_DATA_TIMEOUT_MS:
@@ -118,7 +115,7 @@ def _run_wifi(wifi, vis, gu):
         data = wifi.recv()
         if data:
             pkt = validate_packet(data)
-            if pkt and pkt["board_id"] == BOARD_ID:
+            if pkt:
                 vis.render(pkt["columns"], local_brightness)
                 last_frame_ms = time.ticks_ms()
 
@@ -144,14 +141,9 @@ def main():
 
     vis = Visualizer(gu, gfx, flipped=FLIPPED)
 
-    # Show board identity label
-    vis.show_label(LABEL)
-    time.sleep(2)
-
     wifi = _try_wifi()
     if wifi:
         print("[main] Using WiFi transport")
-        vis.show_label(LABEL)  # refresh label after WiFi connect delay
         _run_wifi(wifi, vis, gu)
     else:
         print("[main] Using serial transport")

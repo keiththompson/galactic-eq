@@ -1,11 +1,7 @@
-# pico/config.py — edit per board before flashing
+# pico/config.py -- edit before flashing
 #
-# BOARD_ID: 0x00 = left board (low frequencies, cols 0-52)
-#           0x01 = right board (high frequencies, cols 53-105)
-#
-# FLIPPED:  True if the board is mounted upside down.
-#           The visualizer will mirror both axes so the display
-#           looks correct, and the startup label renders properly.
+# FLIPPED: True if the board is mounted upside down.
+#          The visualizer will mirror both axes so the display
+#          looks correct.
 
-BOARD_ID = 0x01
 FLIPPED = False
