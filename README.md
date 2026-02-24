@@ -42,13 +42,9 @@ Now all system audio plays through both your speakers and BlackHole simultaneous
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### 3. Install Python Dependencies
+Python dependencies are installed automatically on first `uv run`.
 
-```bash
-uv sync
-```
-
-### 4. Configure WiFi on the Pico
+### 3. Configure WiFi on the Pico
 
 Copy the secrets template and fill in your WiFi credentials:
 
@@ -58,7 +54,7 @@ cp pico/secrets_template.py pico/secrets.py
 
 Edit `pico/secrets.py` with your network name and password.
 
-### 5. Flash the Pico Board
+### 4. Flash the Pico Board
 
 The Galactic Unicorn needs the MicroPython firmware with Pimoroni libraries. See [Pimoroni's guide](https://github.com/pimoroni/pimoroni-pico) for flashing.
 
