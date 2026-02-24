@@ -17,7 +17,12 @@ DECAY = 0.3    # slowly release falling levels
 
 # dB range mapped to 0..MAX_HEIGHT
 DB_FLOOR = -60.0
-DB_CEIL = 0.0
+
+# Adaptive gain: track peak level so loud signals don't just max out
+HEADROOM_DB = 8.0          # always leave this much room above the tracked peak
+DISPLAY_RANGE_DB = 55.0    # dB range mapped onto the display
+PEAK_ATTACK_RATE = 0.9     # fast rise to follow loud signals
+PEAK_RELEASE_RATE = 0.005  # slow decay (~3 s at 30 FPS) when signal drops
 
 
 class FFTProcessor:
@@ -28,6 +33,7 @@ class FFTProcessor:
         self._block_size = block_size
         self._window = np.hanning(block_size)
         self._smoothed = np.zeros(NUM_BANDS, dtype=np.float64)
+        self._tracked_peak_db = DB_FLOOR
 
         # Pre-compute log-spaced frequency band edges
         self._band_edges = np.logspace(
@@ -67,8 +73,23 @@ class FFTProcessor:
         band_magnitudes = np.maximum(band_magnitudes, 1e-10)
         db = 20.0 * np.log10(band_magnitudes)
 
+        # Adaptive peak tracking — keeps bars from all maxing out at high volume
+        current_peak_db = np.max(db)
+        if current_peak_db > self._tracked_peak_db:
+            self._tracked_peak_db += PEAK_ATTACK_RATE * (
+                current_peak_db - self._tracked_peak_db
+            )
+        else:
+            self._tracked_peak_db += PEAK_RELEASE_RATE * (
+                current_peak_db - self._tracked_peak_db
+            )
+
+        # Dynamic ceiling with headroom above the tracked peak
+        effective_ceil = self._tracked_peak_db + HEADROOM_DB
+        effective_floor = max(effective_ceil - DISPLAY_RANGE_DB, DB_FLOOR)
+
         # Normalize dB range to 0..MAX_HEIGHT
-        normalized = (db - DB_FLOOR) / (DB_CEIL - DB_FLOOR)
+        normalized = (db - effective_floor) / (effective_ceil - effective_floor)
         normalized = np.clip(normalized, 0.0, 1.0)
         heights = normalized * MAX_HEIGHT
 
