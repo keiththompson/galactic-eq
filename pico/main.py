@@ -1,7 +1,8 @@
 """Galactic Unicorn visualiser -- Pico entry point.
 
 Reads binary packets over WiFi UDP and renders on the LED matrix.
-Button A = spectrum EQ, Button B = scope.
+Button A = spectrum EQ, Button B = scope, Button C = spectrogram,
+Button D = VU meter.
 """
 
 import time
@@ -30,8 +31,10 @@ LUX_FILE = "lux.cfg"
 LUX_SAVE_DELAY_MS = 2000
 
 # Visualisation modes (selected by A/B/C/D buttons)
-MODE_EQ = 0     # Button A: spectrum analyser
-MODE_SCOPE = 1  # Button B: oscilloscope
+MODE_EQ = 0           # Button A: spectrum analyser
+MODE_SCOPE = 1        # Button B: oscilloscope
+MODE_SPECTROGRAM = 2  # Button C: spectrogram (waterfall)
+MODE_VU = 3           # Button D: stereo VU meter
 MODE_REPEAT_MS = 200  # debounce for mode buttons
 
 
@@ -102,6 +105,10 @@ def _poll_mode(gu, current_mode, last_mode_ms):
         return MODE_EQ, now
     if gu.is_pressed(GalacticUnicorn.SWITCH_B):
         return MODE_SCOPE, now
+    if gu.is_pressed(GalacticUnicorn.SWITCH_C):
+        return MODE_SPECTROGRAM, now
+    if gu.is_pressed(GalacticUnicorn.SWITCH_D):
+        return MODE_VU, now
 
     return current_mode, last_mode_ms
 
@@ -110,6 +117,10 @@ def _render_frame(vis, pkt, brightness, mode):
     """Render the appropriate visualisation for the current mode."""
     if mode == MODE_SCOPE:
         vis.render_scope(pkt["scope"], brightness)
+    elif mode == MODE_SPECTROGRAM:
+        vis.render_spectrogram(pkt["columns"], brightness)
+    elif mode == MODE_VU:
+        vis.render_vu(pkt["vu"], brightness)
     else:
         vis.render(pkt["columns"], brightness)
 
