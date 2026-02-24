@@ -1,17 +1,17 @@
 # Galactic Equalizer
 
-Pimoroni Galactic Unicorn audio visualizer -- a 53x11 LED matrix real-time equalizer driven by macOS system audio.
+Pimoroni Galactic Unicorn audio visualizer -- a 53x11 LED matrix driven by macOS system audio over WiFi.
 
 ```
-┌─────────────────────────────────────────────────┐
-│              macOS Host (Python 3)               │
-│  BlackHole audio -> FFT -> serial packet -> USB  │
-└──────────────────────┬──────────────────────────-┘
-                USB Serial
+┌──────────────────────────────────────────────────┐
+│               macOS Host (Python 3)              │
+│  BlackHole audio -> FFT / scope / VU -> UDP pkt  │
+└──────────────────────┬───────────────────────────┘
+              WiFi UDP broadcast
             ┌──────────▼──────────┐
             │   Pico W / Pico 2 W │
             │   53 cols, 11 rows  │
-            │   20 Hz - 20 kHz    │
+            │   20 Hz – 20 kHz    │
             └─────────────────────┘
 ```
 
@@ -20,6 +20,7 @@ Pimoroni Galactic Unicorn audio visualizer -- a 53x11 LED matrix real-time equal
 - One Pimoroni Galactic Unicorn board (Pico W / Pico 2 W)
 - macOS with Python 3.10+
 - BlackHole virtual audio device
+- WiFi network accessible by both the Mac and the Pico
 
 ## Setup
 
@@ -52,11 +53,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 4. Flash the Pico Board
+### 4. Configure WiFi on the Pico
+
+Copy the secrets template and fill in your WiFi credentials:
+
+```bash
+cp pico/secrets_template.py pico/secrets.py
+```
+
+Edit `pico/secrets.py` with your network name and password.
+
+### 5. Flash the Pico Board
 
 The Galactic Unicorn needs the MicroPython firmware with Pimoroni libraries. See [Pimoroni's guide](https://github.com/pimoroni/pimoroni-pico) for flashing.
 
-Copy the `pico/` files to the board. If the board is mounted upside down, set `FLIPPED = True` in `config.py` before copying.
+If the board is mounted upside down, set `FLIPPED = True` in `pico/config.py` before deploying.
+
+Deploy the `pico/` files to the board over USB:
 
 ```bash
 ./deploy.sh
@@ -70,13 +83,13 @@ Or specify a port explicitly:
 
 ## Usage
 
-Connect the board via USB, then:
+Power the board (USB or external) and make sure it's on the same WiFi network, then:
 
 ```bash
 uv run python host/main.py
 ```
 
-The host sends data to the board via UDP broadcast over WiFi.
+The host broadcasts UDP packets on port 4210. The Pico picks them up automatically.
 
 ### Options
 
@@ -94,12 +107,20 @@ Test the FFT pipeline without a board connected:
 uv run python host/main.py --console
 ```
 
-## Display
+## Visualisation Modes
 
-- **53 frequency bands** mapped logarithmically from 20 Hz to 20 kHz
-- **Classic VU meter colours**: green (bottom) -> yellow (middle) -> red (top)
-- **Peak hold**: white dot at each column's recent maximum, decays over ~2.4 seconds
-- **30 FPS** update rate
+Switch modes using the buttons on the Galactic Unicorn:
+
+| Button | Mode | Description |
+|--------|------|-------------|
+| **A** | Spectrum EQ | 53 log-frequency bands with green/yellow/red gradient and white peak-hold dots |
+| **B** | Oscilloscope | Phosphor-green waveform with zero-crossing trigger and centre reference line |
+| **C** | Spectrogram | Time-scrolling frequency heat map (newest at bottom, black -> blue -> cyan -> green -> yellow -> red -> white) |
+| **D** | VU Meter | Stereo horizontal bar meter (L top, R bottom) with green/yellow/red gradient and peak-hold markers |
+
+**Brightness** is adjusted with the Lux +/- buttons on the board and persists across reboots.
+
+All modes run at **30 FPS**.
 
 ## Troubleshooting
 
@@ -107,5 +128,7 @@ uv run python host/main.py --console
 |---------|-----|
 | "BlackHole audio device not found" | Install BlackHole: `brew install blackhole-2ch` |
 | No audio visualized | Set Multi-Output Device as system output in Sound preferences |
-| No Pico serial port found | Connect the board via USB; check with `ls /dev/cu.usbmodem*` |
-| Display upside down | Set `FLIPPED = True` in `config.py` and re-flash |
+| Board shows nothing | Confirm the Pico and Mac are on the same WiFi network |
+| Board not found during deploy | Connect via USB; check with `ls /dev/cu.usbmodem*` |
+| Display upside down | Set `FLIPPED = True` in `pico/config.py` and redeploy |
+| WiFi keeps dropping | Move the board closer to the access point; the Pico reconnects automatically |
