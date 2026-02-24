@@ -19,7 +19,7 @@ DECAY = 0.3    # slowly release falling levels
 DB_FLOOR = -60.0
 
 # Adaptive gain: track peak level so loud signals don't just max out
-HEADROOM_DB = 8.0          # always leave this much room above the tracked peak
+HEADROOM_DB = 3.0          # always leave this much room above the tracked peak
 DISPLAY_RANGE_DB = 55.0    # dB range mapped onto the display
 PEAK_ATTACK_RATE = 0.9     # fast rise to follow loud signals
 PEAK_RELEASE_RATE = 0.005  # slow decay (~3 s at 30 FPS) when signal drops
