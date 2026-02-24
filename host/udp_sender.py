@@ -1,7 +1,7 @@
 """UDP broadcast sender for Galactic Unicorn equalizer.
 
-Sends 59-byte equalizer packets to 255.255.255.255 so both
-Pico W boards on the local network receive every frame.
+Sends 59-byte equalizer packets to 255.255.255.255 for the
+Pico W board on the local network.
 """
 
 import socket

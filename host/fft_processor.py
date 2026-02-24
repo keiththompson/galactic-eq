@@ -1,12 +1,12 @@
 """FFT processing: Hanning window, log-frequency band mapping, smoothing.
 
-Converts raw audio chunks into 106 bar heights (0-11) suitable for
-the dual 53-column Galactic Unicorn display.
+Converts raw audio chunks into 53 bar heights (0-11) suitable for
+the 53-column Galactic Unicorn display.
 """
 
 import numpy as np
 
-NUM_BANDS = 106  # 53 per board
+NUM_BANDS = 53
 MAX_HEIGHT = 11
 FREQ_MIN = 20.0
 FREQ_MAX = 20000.0
@@ -21,7 +21,7 @@ DB_CEIL = 0.0
 
 
 class FFTProcessor:
-    """Processes audio chunks into 106 equalizer bar heights."""
+    """Processes audio chunks into 53 equalizer bar heights."""
 
     def __init__(self, sample_rate: int, block_size: int):
         self._sample_rate = sample_rate
@@ -48,7 +48,7 @@ class FFTProcessor:
             chunk: float32 mono audio, shape (block_size,)
 
         Returns:
-            np.ndarray of int, shape (106,), values 0-11
+            np.ndarray of int, shape (53,), values 0-11
         """
         # Windowed FFT
         windowed = chunk * self._window

@@ -2,7 +2,7 @@
 
 Packet format (59 bytes):
   Byte 0-1:  0xAA 0x55       Sync marker
-  Byte 2:    Board ID        0x00=left, 0x01=right
+  Byte 2:    Board ID        0x00 (single board)
   Byte 3:    Frame number    Rolling 0-255
   Byte 4:    Brightness      0-255
   Byte 5-57: Column data     53 bytes, each 0-11 (bar height)
