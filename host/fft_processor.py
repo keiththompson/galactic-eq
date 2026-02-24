@@ -77,6 +77,7 @@ class FFTProcessor:
             self._tracked_peak_db += PEAK_ATTACK_RATE * (current_peak_db - self._tracked_peak_db)
         else:
             self._tracked_peak_db += PEAK_RELEASE_RATE * (current_peak_db - self._tracked_peak_db)
+        self._tracked_peak_db = max(self._tracked_peak_db, DB_FLOOR)
 
         # Dynamic ceiling with headroom above the tracked peak
         effective_ceil = self._tracked_peak_db + HEADROOM_DB
