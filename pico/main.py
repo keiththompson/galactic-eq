@@ -32,6 +32,29 @@ LUX_STEP = 0.05
 # Minimum time between repeated button presses (ms)
 LUX_REPEAT_MS = 150
 
+# File to persist brightness across reboots
+LUX_FILE = "lux.cfg"
+# Delay before writing to flash after last change (ms) to reduce wear
+LUX_SAVE_DELAY_MS = 2000
+
+
+def _load_lux():
+    """Load saved brightness from flash, or return None."""
+    try:
+        with open(LUX_FILE, "r") as f:
+            return float(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _save_lux(brightness):
+    """Write brightness to flash."""
+    try:
+        with open(LUX_FILE, "w") as f:
+            f.write(str(round(brightness, 2)))
+    except OSError:
+        pass
+
 
 def _try_wifi():
     """Attempt WiFi setup. Returns a WiFiReceiver or None."""
@@ -50,27 +73,34 @@ def _try_wifi():
         return None
 
 
-def _poll_lux(gu, local_brightness, last_lux_ms):
+def _poll_lux(gu, local_brightness, last_lux_ms, lux_dirty_ms):
     """Check Lux +/- buttons and adjust local brightness.
 
-    Returns (new_brightness, new_last_lux_ms).  When no button is
-    pressed, returns values unchanged.
+    Returns (new_brightness, new_last_lux_ms, new_lux_dirty_ms).
+    lux_dirty_ms is 0 when no save is pending, or the tick when the
+    value last changed (used to defer the flash write).
     """
     now = time.ticks_ms()
+
+    # Deferred save: write to flash once stable for LUX_SAVE_DELAY_MS
+    if lux_dirty_ms and time.ticks_diff(now, lux_dirty_ms) >= LUX_SAVE_DELAY_MS:
+        _save_lux(local_brightness)
+        lux_dirty_ms = 0
+
     if time.ticks_diff(now, last_lux_ms) < LUX_REPEAT_MS:
-        return local_brightness, last_lux_ms
+        return local_brightness, last_lux_ms, lux_dirty_ms
 
     if gu.is_pressed(GalacticUnicorn.SWITCH_BRIGHTNESS_UP):
         local_brightness = min(1.0, local_brightness + LUX_STEP)
-        return local_brightness, now
+        return local_brightness, now, now
     if gu.is_pressed(GalacticUnicorn.SWITCH_BRIGHTNESS_DOWN):
-        local_brightness = max(0.0, local_brightness - LUX_STEP)
-        return local_brightness, now
+        local_brightness = max(LUX_STEP, local_brightness - LUX_STEP)
+        return local_brightness, now, now
 
-    return local_brightness, last_lux_ms
+    return local_brightness, last_lux_ms, lux_dirty_ms
 
 
-def _run_serial(vis, gu):
+def _run_serial(vis, gu, initial_brightness):
     """Main loop: receive packets over USB serial (original path)."""
     decoder = PacketDecoder()
     poller = select.poll()
@@ -78,11 +108,14 @@ def _run_serial(vis, gu):
 
     last_frame_ms = time.ticks_ms()
     blank = bytes(53)
-    local_brightness = gu.get_brightness()
+    local_brightness = initial_brightness
     last_lux_ms = 0
+    lux_dirty_ms = 0
 
     while True:
-        local_brightness, last_lux_ms = _poll_lux(gu, local_brightness, last_lux_ms)
+        local_brightness, last_lux_ms, lux_dirty_ms = _poll_lux(
+            gu, local_brightness, last_lux_ms, lux_dirty_ms
+        )
 
         events = poller.poll(0)
         if events:
@@ -101,16 +134,19 @@ def _run_serial(vis, gu):
         time.sleep_ms(1)
 
 
-def _run_wifi(wifi, vis, gu):
+def _run_wifi(wifi, vis, gu, initial_brightness):
     """Main loop: receive packets over WiFi UDP."""
     last_frame_ms = time.ticks_ms()
     last_wifi_check_ms = time.ticks_ms()
     blank = bytes(53)
-    local_brightness = gu.get_brightness()
+    local_brightness = initial_brightness
     last_lux_ms = 0
+    lux_dirty_ms = 0
 
     while True:
-        local_brightness, last_lux_ms = _poll_lux(gu, local_brightness, last_lux_ms)
+        local_brightness, last_lux_ms, lux_dirty_ms = _poll_lux(
+            gu, local_brightness, last_lux_ms, lux_dirty_ms
+        )
 
         data = wifi.recv()
         if data:
@@ -137,17 +173,21 @@ def _run_wifi(wifi, vis, gu):
 def main():
     gu = GalacticUnicorn()
     gfx = PicoGraphics(display=DISPLAY_GALACTIC_UNICORN)
-    gu.set_brightness(0.5)
+
+    saved = _load_lux()
+    brightness = saved if saved is not None else 0.5
+    gu.set_brightness(brightness)
+    print(f"[main] Brightness: {brightness:.2f}" + (" (saved)" if saved is not None else " (default)"))
 
     vis = Visualizer(gu, gfx, flipped=FLIPPED)
 
     wifi = _try_wifi()
     if wifi:
         print("[main] Using WiFi transport")
-        _run_wifi(wifi, vis, gu)
+        _run_wifi(wifi, vis, gu, brightness)
     else:
         print("[main] Using serial transport")
-        _run_serial(vis, gu)
+        _run_serial(vis, gu, brightness)
 
 
 main()
