@@ -76,14 +76,14 @@ Connect the board via USB, then:
 uv run python host/main.py
 ```
 
-The host auto-detects the Pico serial port (`/dev/cu.usbmodem*`).
+The host sends data to the board via UDP broadcast over WiFi.
 
 ### Options
 
 ```
---port PORT       Serial port for the board (skip auto-detect)
 --brightness N    LED brightness 0-255 (default: 180)
---console         Print ASCII bars to terminal instead of serial
+--udp-port PORT   UDP broadcast port (default: 4210)
+--console         Print ASCII bars to terminal instead of sending
 ```
 
 ### Console Test Mode
@@ -92,12 +92,6 @@ Test the FFT pipeline without a board connected:
 
 ```bash
 uv run python host/main.py --console
-```
-
-### Manual Port Selection
-
-```bash
-uv run python host/main.py --port /dev/cu.usbmodem1101
 ```
 
 ## Display
