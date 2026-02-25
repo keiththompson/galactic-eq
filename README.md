@@ -109,6 +109,14 @@ Switch modes using the buttons on the Galactic Unicorn:
 | **C** | Spectrogram | Time-scrolling frequency heat map (newest at bottom, black -> blue -> cyan -> green -> yellow -> red -> white) |
 | **D** | VU Meter | Stereo horizontal bar meter (L top, R bottom) with green/yellow/red gradient and peak-hold markers |
 
+<p align="center">
+  <img src="images/spectrum-eq.jpg" width="400" alt="Spectrum EQ mode" />
+  <img src="images/oscilloscope.jpg" width="400" alt="Oscilloscope mode" />
+  <br/>
+  <img src="images/spectrogram.jpg" width="400" alt="Spectrogram mode" />
+  <img src="images/vu-meter.jpg" width="400" alt="VU Meter mode" />
+</p>
+
 **Brightness** is adjusted with the Lux +/- buttons on the board and persists across reboots.
 
 All modes run at **30 FPS**.
